@@ -2,59 +2,109 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+[RequireComponent(typeof(CharacterController))]
 public class FPSCon : MonoBehaviour
 {
-    float x, z;
-    float speed = 0.1f;
-
-    public GameObject cam;
-    Quaternion cameraRot, characterRot;
-    float Xsensityvity = 3f, Ysensityvity = 3f;
+    public float x_sensi;
+    public float y_sensi;
+    public new GameObject camera;
+    public Vector3 cameraAngle;
 
     bool cursorLock = true;
 
-    //変数の宣言(角度の制限用)
-    float minX = -90f, maxX = 90f;
+    [SerializeField] private float _speed=3;
+    [SerializeField] private float jumpPower=3;
+    private CharacterController _characterController;
 
-    // Start is called before the first frame update
+    private Transform _transform;
+
+    private Rigidbody rb;
+
+    private int upForce;
+    private float distance;
+
     void Start()
     {
-        cameraRot = cam.transform.localRotation;
-        characterRot = transform.localRotation;
+        _characterController = GetComponent<CharacterController>();
+        _transform = transform;
+
+        rb = GetComponent<Rigidbody>();
+        upForce = 300;
+        distance = 2.0f;
     }
 
-    // Update is called once per frame
     void Update()
     {
-        float xRot = Input.GetAxis("Mouse X") * Ysensityvity;
-        float yRot = Input.GetAxis("Mouse Y") * Xsensityvity;
-
-        cameraRot *= Quaternion.Euler(-yRot, 0, 0);
-        characterRot *= Quaternion.Euler(0, xRot, 0);
-
-        //Updateの中で作成した関数を呼ぶ
-        cameraRot = ClampRotation(cameraRot);
-
-        cam.transform.localRotation = cameraRot;
-        transform.localRotation = characterRot;
-
+        movecon();
+        Jump();
+        cameracon();
 
         UpdateCursorLock();
     }
 
-    private void FixedUpdate()
+    void movecon()
     {
-        x = 0;
-        z = 0;
-
-        x = Input.GetAxisRaw("Horizontal") * speed;
-        z = Input.GetAxisRaw("Vertical") * speed;
-
-        //transform.position += new Vector3(x,0,z);
-
-        transform.position += cam.transform.forward * z + cam.transform.right * x;
+        if (Input.anyKey)
+        {
+            var velocity = Vector3.zero;
+            if (Input.GetKey(KeyCode.W))
+            {
+                velocity.z = _speed;
+            }
+            if (Input.GetKey(KeyCode.A))
+            {
+                velocity.x = -_speed;
+            }
+            if (Input.GetKey(KeyCode.S))
+            {
+                velocity.z = -_speed;
+            }
+            if (Input.GetKey(KeyCode.D))
+            {
+                velocity.x = _speed;
+            }
+            if (velocity.x != 0 || velocity.z != 0)
+            {
+                transform.position += transform.rotation * velocity;
+            }
+        }
     }
 
+    void Jump()
+    {
+        Vector3 rayPosition = transform.position + new Vector3(0.0f, 0.0f, 0.0f);
+        Ray ray = new Ray(rayPosition, Vector3.down);
+        bool isGround = Physics.Raycast(ray, distance);
+        Debug.DrawRay(rayPosition, Vector3.down * distance, Color.red);
+
+        if (Input.GetMouseButtonDown(0))
+        {
+            if (isGround)
+                rb.AddForce(new Vector3(0, upForce, 0));
+        }
+    }
+
+    void cameracon()
+    {
+        float x_Rotation = Input.GetAxis("Mouse X");
+        float y_Rotation = Input.GetAxis("Mouse Y");
+        x_Rotation = x_Rotation * x_sensi;
+        y_Rotation = y_Rotation * y_sensi;
+        this.transform.Rotate(0, x_Rotation, 0);
+        camera.transform.Rotate(-y_Rotation, 0, 0);
+        cameraAngle = camera.transform.localEulerAngles;
+        if (cameraAngle.x < 280 && cameraAngle.x > 180)
+        {
+            cameraAngle.x = 280;
+        }
+        if (cameraAngle.x > 45 && cameraAngle.x < 180)
+        {
+            cameraAngle.x = 45;
+        }
+        cameraAngle.y = 0;
+        cameraAngle.z = 0;
+        camera.transform.localEulerAngles = cameraAngle;
+    }
 
     public void UpdateCursorLock()
     {
@@ -77,25 +127,4 @@ public class FPSCon : MonoBehaviour
             Cursor.lockState = CursorLockMode.None;
         }
     }
-
-    //角度制限関数の作成
-    public Quaternion ClampRotation(Quaternion q)
-    {
-        //q = x,y,z,w (x,y,zはベクトル（量と向き）：wはスカラー（座標とは無関係の量）)
-
-        q.x /= q.w;
-        q.y /= q.w;
-        q.z /= q.w;
-        q.w = 1f;
-
-        float angleX = Mathf.Atan(q.x) * Mathf.Rad2Deg * 2f;
-
-        angleX = Mathf.Clamp(angleX, minX, maxX);
-
-        q.x = Mathf.Tan(angleX * Mathf.Deg2Rad * 0.5f);
-
-        return q;
-    }
-
-
 }
